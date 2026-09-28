@@ -264,31 +264,12 @@ ffmpeg {
         streaming/video/ffmpeg-renderers/pacer/pacer.h
 }
 
-# PyroWave decoder.
-#
-# Gated on win32 because the only build of the codec that is wired up here is the
-# Windows one, and because the presentation stack it reuses (Pacer + SdlRenderer)
-# is compiled in the ffmpeg block above, so this cannot be enabled independently.
-#
-# The codec itself is built out of tree by the repository-level pyrowave.pri and is
-# consumed as an import library, the same way the host links it. The C API lives in
-# the codec's `pyrowave-shared` target; its `pyrowave` static library is the C++ core
-# and exports no pyrowave_* symbols at all.
-win32 {
-    message(PyroWave decoder selected)
-
-    include(pyrowave.pri)
-
-    pyrowave_enabled {
-        DEFINES += HAVE_PYROWAVE
-
-        SOURCES += \
-            streaming/video/pyrowave.cpp
-
-        HEADERS += \
-            streaming/video/pyrowave.h
-    }
-}
+# PyroWave decoder. See app/pyrowave.pri for why this is included at the top level
+# rather than inside a win32 {} block: a variable set by an include() nested in a
+# scope does not reliably reach that scope's condition blocks, and the failure is
+# silent - LIBS and INCPATH get set but SOURCES and DEFINES do not, so the decoder
+# is linked against and then never compiled. The .pri gates everything itself.
+include(pyrowave.pri)
 libva {
     message(VAAPI renderer selected)
 

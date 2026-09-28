@@ -274,7 +274,9 @@ bool PyroWaveVideoDecoder::initialize(PDECODER_PARAMETERS params) {
     }
 
     m_LastFrameNumber = 0;
-    m_BwTracker = BandwidthTracker(10, 250);
+    // m_BwTracker is deliberately not (re)assigned here: its assignment operators
+    // are deleted, so the window settings have to be fixed at construction. The
+    // default (10s window, 250ms buckets) is the same pair the FFmpeg decoder uses.
 
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                 "PyroWave video decoder initialized for %dx%d@%d (CPU decode, SDL renderer)",
@@ -313,12 +315,16 @@ AVFrame* PyroWaveVideoDecoder::acquireFrameBuffer() {
     // is allowed on packet loss) may leave gaps.
     memset(buf->data, 128, total);
 
-    av_frame_ref(frame->buf[0], buf);
-    frame->data[0] = buf->data;
+    // av_buffer_ref takes a new reference rather than copying the contents, which
+    // is what keeps the planes alive for as long as the frame does. frame->buf[0]
+    // is the buffer the frame's plane 0 is backed by, and av_frame_free() releases
+    // it. The local reference is dropped right after.
+    frame->buf[0] = av_buffer_ref(buf);
+    frame->data[0] = frame->buf[0]->data;
     frame->linesize[0] = m_Width;
-    frame->data[1] = buf->data + ySize;
+    frame->data[1] = frame->buf[0]->data + ySize;
     frame->linesize[1] = chromaWidth;
-    frame->data[2] = buf->data + ySize + uSize;
+    frame->data[2] = frame->buf[0]->data + ySize + uSize;
     frame->linesize[2] = chromaWidth;
 
     av_buffer_unref(&buf);
@@ -394,7 +400,13 @@ int PyroWaveVideoDecoder::decodeAndQueueFrame(PDECODE_UNIT du) {
 
     auto *frame = acquireFrameBuffer();
     if (!frame) {
-        return DR_ERROR;
+        // Out of memory. DR_NEED_IDR is the only failure code the protocol offers
+        // besides DR_OK, and it is also the honest one: there is no usable frame, so
+        // the caller must wait for a fresh one.
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "PyroWave: could not allocate a frame buffer");
+        m_ConsecutiveFailedDecodes++;
+        return DR_NEED_IDR;
     }
 
     cpuBuffer.data[0] = frame->data[0];

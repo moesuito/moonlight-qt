@@ -26,6 +26,11 @@
 #include "ffmpeg-renderers/renderer.h"
 #include "ffmpeg-renderers/pacer/pacer.h"
 
+// BandwidthTracker, for the same reason FFmpegVideoDecoder includes it: the video
+// stats it reports are only meaningful with the receive-side throughput alongside
+// them.
+#include "../bandwidth.h"
+
 #include <QByteArray>
 #include <QQueue>
 

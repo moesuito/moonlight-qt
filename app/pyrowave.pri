@@ -62,15 +62,28 @@ pyrowave_enabled = true
 
 PYROWAVE_DLL = $$PYROWAVE_BUILD_DIR/libpyrowave-shared-0.dll
 
+# Full path rather than -L/-l. qmake translates -L into a /LIBPATH for msvc, but the
+# linker then still searches by name and, for a name that is not a known system
+# library, does not reliably find it. A full path is unambiguous.
+LIBS += "$$PYROWAVE_BUILD_DIR/pyrowave-shared.lib"
+
+# No conditions anywhere below. Every failure path above already return()s, so
+# reaching this point means the decoder is enabled - and that matters, because
+# `somevar:SOURCES += ...` proved unreliable here: the same conditional form made
+# message() fire while the assignment silently did nothing, so pyrowave.cpp was
+# never compiled even though the codec was linked in. Flat, unconditional
+# assignments after an early return have no such failure mode.
 INCLUDEPATH += \
     $$PYROWAVE_ROOT \
     $$PYROWAVE_ROOT/eval-results \
     $$PYROWAVE_ROOT/Granite/third_party/khronos/vulkan-headers/include
 
-# Full path rather than -L/-l. qmake translates -L into a /LIBPATH for msvc, but the
-# linker then still searches by name and, for a name that is not a known system
-# library, does not reliably find it. A full path is unambiguous.
-LIBS += "$$PYROWAVE_BUILD_DIR/pyrowave-shared.lib"
+DEFINES += HAVE_PYROWAVE
+
+SOURCES += streaming/video/pyrowave.cpp
+HEADERS += streaming/video/pyrowave.h
+
+message("PyroWave: decoder enabled (streaming/video/pyrowave.cpp)")
 
 # The codec DLL must sit next to the executable or the client fails to start with
 # 0xC0000135 and no message. The project keeps runtime DLLs in release/ or debug/
