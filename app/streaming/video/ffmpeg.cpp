@@ -874,6 +874,11 @@ void FFmpegVideoDecoder::stringifyVideoStats(VIDEO_STATS& stats, char* output, i
         break;
 
     default:
+        // NOTE: VIDEO_FORMAT_PYROWAVE is deliberately absent. It has its own decoder
+        // backend (which does its own stats stringification), and PyroWave is not an
+        // FFmpeg codec, so it can never reach here. If it ever does, this assert firing
+        // is the signal that chooseDecoder() picked the wrong backend - so do not add a
+        // PyroWave case to silence it.
         SDL_assert(false);
         codecString = "UNKNOWN";
         break;
@@ -1483,6 +1488,10 @@ int FFmpegVideoDecoder::getAVCodecCapabilities(const AVCodec *codec)
 
 bool FFmpegVideoDecoder::isDecoderMatchForParams(const AVCodec *decoder, PDECODER_PARAMETERS params)
 {
+    // VIDEO_FORMAT_MASK_PYROWAVE is intentionally NOT in this assert or the predicate
+    // below: PyroWave is not an FFmpeg codec, so no AVCodec can ever match it. If
+    // PyroWave ever reaches this decoder it means chooseDecoder() picked the wrong
+    // backend, and the assert is exactly where we want that to be loud.
     SDL_assert(params->videoFormat & (VIDEO_FORMAT_MASK_H264 | VIDEO_FORMAT_MASK_H265 | VIDEO_FORMAT_MASK_AV1));
 
 #if defined(HAVE_MMAL) && !defined(ALLOW_EGL_WITH_MMAL)

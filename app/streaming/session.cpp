@@ -731,6 +731,13 @@ bool Session::initialize(QQuickWindow* qtWindow)
                 CHANNEL_MASK_FROM_AUDIO_CONFIGURATION(m_StreamConfig.audioConfiguration));
 
     // Start with all codecs and profiles in priority order
+    // PyroWave goes at the top. It is intra-only, so a lost frame costs exactly one
+    // frame with no inter-frame cascade, and it targets the best quality-per-bit of
+    // anything here. VIDEO_FORMAT_PYROWAVE is 8-bit 4:2:0, which is the only PyroWave
+    // configuration implemented (see AGENTS.md 4.1 - "yuv444p not supported for YCbCr
+    // sampling"), so it is unconditionally safe to list here regardless of the
+    // enableYUV444 / enableHdr preferences.
+    m_SupportedVideoFormats.append(VIDEO_FORMAT_PYROWAVE);
     m_SupportedVideoFormats.append(VIDEO_FORMAT_AV1_HIGH10_444);
     m_SupportedVideoFormats.append(VIDEO_FORMAT_AV1_MAIN10);
     m_SupportedVideoFormats.append(VIDEO_FORMAT_H265_REXT10_444);
