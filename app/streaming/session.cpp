@@ -15,6 +15,10 @@
 #include "video/slvid.h"
 #endif
 
+#ifdef HAVE_PYROWAVE
+#include "video/pyrowave.h"
+#endif
+
 #ifdef Q_OS_WIN32
 // Scaling the icon down on Win32 looks dreadful, so render at lower res
 #define ICON_SIZE 32
@@ -314,6 +318,29 @@ bool Session::chooseDecoder(StreamingPreferences::VideoDecoderSelection vds,
                      "Unable to load SLVideo decoder");
         delete chosenDecoder;
         chosenDecoder = nullptr;
+    }
+#endif
+
+    // PyroWave is a different codec, not another implementation of H.264/HEVC/AV1,
+    // so it is only a candidate when the host actually negotiated it. Trying it for
+    // any other format would fail initialization by design and only add noise.
+#ifdef HAVE_PYROWAVE
+    if (videoFormat == VIDEO_FORMAT_PYROWAVE) {
+        chosenDecoder = new PyroWaveVideoDecoder(testOnly);
+        if (chosenDecoder->initialize(&params)) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "PyroWave video decoder chosen");
+            return true;
+        }
+
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "Unable to load PyroWave decoder");
+        delete chosenDecoder;
+        chosenDecoder = nullptr;
+
+        // No fallback here. The other decoders cannot decode this format, so
+        // falling through would fail later with a far less useful error.
+        return false;
     }
 #endif
 
